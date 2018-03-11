@@ -14,16 +14,16 @@ public class BlockStoreAuthEnc implements BlockStore {
     public static final int KEY_BYTES = PRF.KEY_SIZE_BYTES;
     public static final int HASH_BYTES = PRF.OUTPUT_SIZE_BYTES;
     
-    private boolen blockIsEmpty(int blockNum){
-        byte[] value = new byte[dev.blockSize()+HASH_BYTES];
-        byte[] empty = new byte[dev.blockSize()+HASH_BYTES];
-        dev.readBlock(blockNum, value, 0, 0, dev.blockSize()+HASH_BYTES);
-        return Array.equals(value, empty);
+    private boolean blockIsEmpty(int blockNum) throws DataIntegrityException{
+        byte[] value = new byte[dev.blockSize()];
+        byte[] empty = new byte[dev.blockSize()];
+        dev.readBlock(blockNum, value, 0, 0, dev.blockSize());
+        return Arrays.equals(value, empty);
     }
     
-    private boolean checkIntegrity(int blockNum){
+    private boolean checkIntegrity(int blockNum) throws DataIntegrityException{
         byte[] key = new byte[KEY_BYTES];
-        byte[] value = new byte[dev.blockSize()];
+        byte[] value = new byte[blockSize()];
         byte[] hashLeft = new byte[HASH_BYTES];
         byte[] hashRight = new byte[HASH_BYTES];
         
@@ -32,27 +32,27 @@ public class BlockStoreAuthEnc implements BlockStore {
 
         //CHECK SUPERBLOCK
         if(blockNum==-1){
-            dev.readBlock(0, oldHash, 0, dev.blockSize(), HASH_BYTES);
-            dev.readSuperBlock(calculatedHash, 0, dev.superBlockSize()-HASH_BYTES, HASH_BYTES);
+            dev.readBlock(0, oldHash, 0, blockSize(), HASH_BYTES);
+            dev.readSuperBlock(calculatedHash, 0, superBlockSize()-HASH_BYTES, HASH_BYTES);
             if (Arrays.equals(oldHash,calculatedHash))
-                return TRUE;
+                return true;
             else
-                return FALSE;
+                return false;
         }
             
         //If block is empty, integrity depends on the node's parent
-        if (blockIsEmpty)
-            return checkIntegerity(blockNum/2-1); 
+        if (blockIsEmpty(blockNum))
+            return checkIntegrity(blockNum/2-1); 
         
         //Adjust index for tree traversal
         blockNum=blockNum+1;
         
         dev.readSuperBlock(key, 0, dev.superBlockSize()-HASH_BYTES-KEY_BYTES, KEY_BYTES);
         
-        dev.readBlock(blockNum-1, value, 0, 0, dev.blockSize());
-        dev.readBlock(blockNum-1, oldHash, 0, dev.blockSize(), HASH_BYTES);
-        dev.readBlock(2*blockNum-1, hashLeft, 0, dev.blockSize(), HASH_BYTES);
-        dev.readBlock(2*blockNum, hashRight, 0, dev.blockSize(), HASH_BYTES);
+        dev.readBlock(blockNum-1, value, 0, 0, blockSize());
+        dev.readBlock(blockNum-1, oldHash, 0, blockSize(), HASH_BYTES);
+        dev.readBlock(2*blockNum-1, hashLeft, 0, blockSize(), HASH_BYTES);
+        dev.readBlock(2*blockNum, hashRight, 0, blockSize(), HASH_BYTES);
         
         PRF prf = new PRF(key);
         prf.update(hashLeft);
@@ -60,12 +60,12 @@ public class BlockStoreAuthEnc implements BlockStore {
         calculatedHash=prf.eval(value);
         
         if (Arrays.equals(oldHash,calculatedHash))
-            return checkIntegerity(blockNum/2-1);
+            return checkIntegrity(blockNum/2-1);
         else
-            return FALSE;
+            return false;
     }
     
-    private void updateHash(int blockNum){
+    private void updateHash(int blockNum) throws DataIntegrityException{
         byte[] key = new byte[KEY_BYTES];
         byte[] value = new byte[dev.blockSize()];
         byte[] hashLeft = new byte[HASH_BYTES];
@@ -77,6 +77,7 @@ public class BlockStoreAuthEnc implements BlockStore {
         if(blockNum==-1){
             dev.readBlock(0, hash, 0, dev.blockSize(), HASH_BYTES);
             dev.writeSuperBlock(hash, 0, dev.superBlockSize()-HASH_BYTES, HASH_BYTES);
+            return;
         }
             
         //Adjust index for tree traversal
@@ -84,16 +85,16 @@ public class BlockStoreAuthEnc implements BlockStore {
         
         dev.readSuperBlock(key, 0, dev.superBlockSize()-HASH_BYTES-KEY_BYTES, KEY_BYTES);
         
-        dev.readBlock(blockNum-1, value, 0, 0, dev.blockSize());
-        dev.readBlock(2*blockNum-1, hashLeft, 0, dev.blockSize(), HASH_BYTES);
-        dev.readBlock(2*blockNum, hashRight, 0, dev.blockSize(), HASH_BYTES);
+        dev.readBlock(blockNum-1, value, 0, 0, blockSize());
+        dev.readBlock(2*blockNum-1, hashLeft, 0, blockSize(), HASH_BYTES);
+        dev.readBlock(2*blockNum, hashRight, 0, blockSize(), HASH_BYTES);
         
         PRF prf = new PRF(key);
         prf.update(hashLeft);
         prf.update(hashRight);
         hash=prf.eval(value);
         
-        dev.writeBlock(blockNum-1, hash, 0, dev.blockSize(), HASH_BYTES);
+        dev.writeBlock(blockNum-1, hash, 0, blockSize(), HASH_BYTES);
         updateHash(blockNum/2-1);
     }
     
@@ -133,7 +134,7 @@ public class BlockStoreAuthEnc implements BlockStore {
 
     public void readBlock(int blockNum, byte[] buf, int bufOffset, 
         int blockOffset, int nbytes) throws DataIntegrityException {
-        if(!checkIntegrity){
+        if(!checkIntegrity(blockNum)){
             throw new DataIntegrityException();
         }
         if(blockOffset+nbytes > blockSize()){
@@ -145,8 +146,8 @@ public class BlockStoreAuthEnc implements BlockStore {
 
     public void writeBlock(int blockNum, byte[] buf, int bufOffset, 
         int blockOffset, int nbytes) throws DataIntegrityException {
-        if(!checkIntegrity){
-            throw DataIntegrityException();
+        if(!checkIntegrity(blockNum)){
+            throw new DataIntegrityException();
         }
         if(blockOffset+nbytes > blockSize()){
             throw new ArrayIndexOutOfBoundsException();
