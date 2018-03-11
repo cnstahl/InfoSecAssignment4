@@ -14,8 +14,13 @@ public class BlockStoreAuthEnc implements BlockStore {
     public static final int KEY_BYTES = PRF.KEY_SIZE_BYTES;
     public static final int HASH_BYTES = PRF.OUTPUT_SIZE_BYTES;
     
+    private boolen blockIsEmpty(int blockNum){
+        byte[] value = new byte[dev.blockSize()+HASH_BYTES];
+        byte[] empty = new byte[dev.blockSize()+HASH_BYTES];
+        dev.readBlock(blockNum, value, 0, 0, dev.blockSize()+HASH_BYTES);
+        return Array.equals(value, empty);
+    }
     
-
     private boolean checkIntegrity(int blockNum){
         byte[] key = new byte[KEY_BYTES];
         byte[] value = new byte[dev.blockSize()];
@@ -35,6 +40,10 @@ public class BlockStoreAuthEnc implements BlockStore {
                 return FALSE;
         }
             
+        //If block is empty, integrity depends on the node's parent
+        if (blockIsEmpty)
+            return checkIntegerity(blockNum/2-1); 
+        
         //Adjust index for tree traversal
         blockNum=blockNum+1;
         
