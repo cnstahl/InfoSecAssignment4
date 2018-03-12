@@ -22,7 +22,7 @@ public class BlockStoreAuthEnc implements BlockStore {
     }
     
     private boolean checkIntegrity(int blockNum) throws DataIntegrityException{
-        byte[] key = new byte[KEY_BYTES];
+        byte[] key = new byte[KEY_BYTES]; //FIXED KEY 0
         byte[] value = new byte[blockSize()];
         byte[] hashLeft = new byte[HASH_BYTES];
         byte[] hashRight = new byte[HASH_BYTES];
@@ -33,21 +33,19 @@ public class BlockStoreAuthEnc implements BlockStore {
         //CHECK SUPERBLOCK
         if(blockNum==-1){
             dev.readBlock(0, oldHash, 0, blockSize(), HASH_BYTES);
-            dev.readSuperBlock(calculatedHash, 0, superBlockSize()-HASH_BYTES, HASH_BYTES);
+            dev.readSuperBlock(calculatedHash, 0, superBlockSize(), HASH_BYTES);
             if (Arrays.equals(oldHash,calculatedHash))
                 return true;
             else
                 return false;
         }
             
-        //If block is empty, integrity depends on the node's parent
-        if (blockIsEmpty(blockNum))
-            return checkIntegrity(blockNum/2-1); 
-        
         //Adjust index for tree traversal
         blockNum=blockNum+1;
         
-        dev.readSuperBlock(key, 0, dev.superBlockSize()-HASH_BYTES-KEY_BYTES, KEY_BYTES);
+        //If block is empty, integrity depends on the node's parent
+        if (blockIsEmpty(blockNum-1))
+            return checkIntegrity((blockNum/2)-1); 
         
         dev.readBlock(blockNum-1, value, 0, 0, blockSize());
         dev.readBlock(blockNum-1, oldHash, 0, blockSize(), HASH_BYTES);
@@ -61,13 +59,15 @@ public class BlockStoreAuthEnc implements BlockStore {
         
         if (Arrays.equals(oldHash,calculatedHash))
             return checkIntegrity(blockNum/2-1);
-        else
+        else{
+            System.out.println(blockNum-1);
             return false;
+        }
     }
     
     private void updateHash(int blockNum) throws DataIntegrityException{
         byte[] key = new byte[KEY_BYTES];
-        byte[] value = new byte[dev.blockSize()];
+        byte[] value = new byte[blockSize()];
         byte[] hashLeft = new byte[HASH_BYTES];
         byte[] hashRight = new byte[HASH_BYTES];
         
@@ -75,15 +75,13 @@ public class BlockStoreAuthEnc implements BlockStore {
 
         //CHECK SUPERBLOCK
         if(blockNum==-1){
-            dev.readBlock(0, hash, 0, dev.blockSize(), HASH_BYTES);
-            dev.writeSuperBlock(hash, 0, dev.superBlockSize()-HASH_BYTES, HASH_BYTES);
+            dev.readBlock(0, hash, 0, blockSize(), HASH_BYTES);
+            dev.writeSuperBlock(hash, 0, superBlockSize(), HASH_BYTES);
             return;
         }
             
         //Adjust index for tree traversal
         blockNum=blockNum+1;
-        
-        dev.readSuperBlock(key, 0, dev.superBlockSize()-HASH_BYTES-KEY_BYTES, KEY_BYTES);
         
         dev.readBlock(blockNum-1, value, 0, 0, blockSize());
         dev.readBlock(2*blockNum-1, hashLeft, 0, blockSize(), HASH_BYTES);
@@ -113,7 +111,7 @@ public class BlockStoreAuthEnc implements BlockStore {
     }
 
     public int superBlockSize() {
-        return dev.superBlockSize()-HASH_BYTES-KEY_BYTES;
+        return dev.superBlockSize()-HASH_BYTES;
     }
 
     public void readSuperBlock(byte[] buf, int bufOffset, int blockOffset, 
