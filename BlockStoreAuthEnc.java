@@ -100,6 +100,11 @@ public class BlockStoreAuthEnc implements BlockStore {
     throws DataIntegrityException {
         dev = underStore;
         prg = thePrg; 
+        byte[] key = new byte[KEY_BYTES];
+        for(int i = 0; i < KEY_BYTES; i++) {
+            key[i] = (byte) prg.next(8);
+        }
+        writeSuperBlock(key, 0, 0, 32);
     }
 
     public void format() throws DataIntegrityException { 
@@ -139,7 +144,23 @@ public class BlockStoreAuthEnc implements BlockStore {
             throw new ArrayIndexOutOfBoundsException();
         }
         
-        dev.readBlock(blockNum, buf, bufOffset, blockOffset, nbytes);
+        byte[] encBuf = new byte[nbytes];
+        dev.readBlock(blockNum, encBuf, 0, blockOffset, nbytes);
+
+        // System.out.print("Reading from block ");
+        // System.out.println(blockNum);
+        // for (int i = 0; i < nbytes; i++) {
+        //     System.out.print(encBuf[i]);
+        // }
+        // System.out.println();
+
+        byte[] key = new byte[KEY_BYTES];
+        readSuperBlock(key, 0, 0, KEY_BYTES);
+        byte[] nonce = new byte[8];
+        LongUtils.longToBytes((long) blockNum, nonce, 0);
+        StreamCipher cipher = new StreamCipher(key, nonce, 0);
+        
+        cipher.cryptBytes(encBuf, 0, buf, bufOffset, nbytes);
     }
 
     public void writeBlock(int blockNum, byte[] buf, int bufOffset, 
@@ -150,8 +171,23 @@ public class BlockStoreAuthEnc implements BlockStore {
         if(blockOffset+nbytes > blockSize()){
             throw new ArrayIndexOutOfBoundsException();
         }   
+        byte[] key = new byte[KEY_BYTES];
+        readSuperBlock(key, 0, 0, KEY_BYTES);
+        byte[] nonce = new byte[8];
+        LongUtils.longToBytes((long) blockNum, nonce, 0);
+        StreamCipher cipher = new StreamCipher(key, nonce, 0);
         
-        dev.writeBlock(blockNum, buf, bufOffset, blockOffset, nbytes);
+        byte[] encBuf = new byte[nbytes];
+        cipher.cryptBytes(buf, bufOffset, encBuf, 0, nbytes);
+
+        // System.out.print("Writing to block ");
+        // System.out.println(blockNum);
+        // for (int i = 0; i < nbytes; i++) {
+        //     System.out.print(encBuf[i]);
+        // }
+        // System.out.println();
+
+        dev.writeBlock(blockNum, encBuf, 0, blockOffset, nbytes);
         updateHash(blockNum);
     }
 }
