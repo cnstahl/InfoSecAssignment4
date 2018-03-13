@@ -101,10 +101,14 @@ public class BlockStoreAuthEnc implements BlockStore {
         dev = underStore;
         prg = thePrg; 
         byte[] key = new byte[KEY_BYTES];
-        for(int i = 0; i < KEY_BYTES; i++) {
-            key[i] = (byte) prg.next(8);
+        byte[] empty = new byte[KEY_BYTES];
+        dev.readSuperBlock(key, 0, 0, 32);
+        if(Arrays.equals(key,empty)){
+            for(int i = 0; i < KEY_BYTES; i++) {
+                key[i] = (byte) prg.next(8);
+            }
+            dev.writeSuperBlock(key, 0, 0, 32);
         }
-        writeSuperBlock(key, 0, 0, 32);
     }
 
     public void format() throws DataIntegrityException { 
@@ -147,13 +151,6 @@ public class BlockStoreAuthEnc implements BlockStore {
         byte[] encBuf = new byte[nbytes];
         dev.readBlock(blockNum, encBuf, 0, blockOffset, nbytes);
 
-        // System.out.print("Reading from block ");
-        // System.out.println(blockNum);
-        // for (int i = 0; i < nbytes; i++) {
-        //     System.out.print(encBuf[i]);
-        // }
-        // System.out.println();
-
         byte[] key = new byte[KEY_BYTES];
         readSuperBlock(key, 0, 0, KEY_BYTES);
         byte[] nonce = new byte[8];
@@ -179,13 +176,6 @@ public class BlockStoreAuthEnc implements BlockStore {
         
         byte[] encBuf = new byte[nbytes];
         cipher.cryptBytes(buf, bufOffset, encBuf, 0, nbytes);
-
-        // System.out.print("Writing to block ");
-        // System.out.println(blockNum);
-        // for (int i = 0; i < nbytes; i++) {
-        //     System.out.print(encBuf[i]);
-        // }
-        // System.out.println();
 
         dev.writeBlock(blockNum, encBuf, 0, blockOffset, nbytes);
         updateHash(blockNum);
