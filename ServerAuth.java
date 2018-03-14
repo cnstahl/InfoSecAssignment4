@@ -9,8 +9,11 @@ import java.io.IOException;
 
 
 public class ServerAuth {
+  private static final int HASH_BYTES = PRF.OUTPUT_SIZE_BYTES;
+  private static final int KEY_BYTES = PRF.KEY_SIZE_BYTES;
   private ArrayStore            as;
   private BlockStoreMultiplexor multiplexor;
+  private byte[] signedIn;
 
   private BlockStore            lastBlockStoreAllocated;
   // CREATE, MODIFY, OR DELETE FIELDS AS NEEDED
@@ -19,12 +22,27 @@ public class ServerAuth {
     // bsm is a BlockStoreMultiplexor we can use
     // myBlockStore is a BlockStore that was created using bsm, which
     // is available for use in keeping track of authentication info
-    //
-    // YOU SHOULD MODIFY THIS CONSTRUCTOR AS NEEDED
     as = new ArrayStore(myBlockStore);
     multiplexor = bsm;
+    signedIn=null;
   }
 
+  //Returns the index for username "user". Returns -1 if user does not exist.
+  private boolean userIndex(byte[] user) throws DataIntegrityException{
+      int numberStores = multiplexor.numSubStores()-1;
+      int sizeUser = (user.length>100) ? sizeUser=100 : sizeUser=user.length;
+      
+      byte[] reader = new byte[100];
+      byte[] comparer = new byte[100];
+      System.arraycopy(user,0,comparer,0,sizeUser);
+      for (int i=0; i<numberStores; i++){
+         as.read(reader, 0, 100*i, 100);
+         if(Arrays.equals(reader,comparer))
+             return i+1;
+      }
+      return -1;
+  }
+  
   public BlockStore createUser(String username, String password) 
   throws DataIntegrityException {
     // If there is already a user with the same name, return null.
@@ -35,10 +53,27 @@ public class ServerAuth {
     // BlockStore in all cases, without checking if the name is already taken,
     // and without storing any information that might be needed for 
     // authentication later.
-    //
-    // YOU SHOULD MODIFY THIS METHOD TO FIX THIS PROBLEM.
-    lastBlockStoreAllocated = multiplexor.newSubStore();
-    return lastBlockStoreAllocated;  
+    byte[] user = username.getBytes();
+    byte[] pass = password.getBytes();
+    if (userIndex(user)!=-1)
+        return null;
+    //Create New SubStore
+    BlockStore userBlock = multiplexor.newSubStore();
+    userBlock.format();
+    int numberStores = multiplexor.numSubStores()-1;
+    
+    //Store Username in ArrayStore (which is safe because it was created with
+    //the bsm which is implemented by our secure BlockStoreAuthEnc
+    int sizeUser = (user.length>100) ? sizeUser=100 : sizeUser=user.length;
+    as.write(user, 0, 100*numberUsers, 100);
+    
+    //Hash key with username
+    byte[] key = new byte[KEY_BYTES];
+    PRF prf = new PRF(key);
+    byte[] hash = prf.eval(username);
+    //Store in "virtual" SuperBlock space allocated in Multiplexor for each SubStore
+    userBlock.writeSuperBlock(hash,0,0,HASH_BYTES);
+    return userBlock;  
   }
 
   public BlockStore auth(String username, String password) 
@@ -50,8 +85,23 @@ public class ServerAuth {
     // The code we are providing here is insecure. Its behavior doesn't 
     // depend on <username> or <password>.  And if it returns a BlockStore,
     // it isn't necessarily the one associated with the given username.
-    //
-    // YOU SHOULD MODIFY THIS METHOD TO FIX THIS PROBLEM.
-    return lastBlockStoreAllocated;
+    byte[] user = username.getBytes();
+    byte[] pass = password.getBytes();
+    index = userIndex(user);
+    if (index==-1)
+        return null;
+    BlockStore userBlock = multiplexor.getSubStore(index);
+    
+    byte[] storedHash = new byte[HASH_SIZE];
+    userBlock.readSuperBlock(storedHash,0,0,HASH_BYTES);
+    
+    byte[] key = new byte[KEY_BYTES];
+    PRF prf = new PRF(key);
+    byte[] calculatedHash = prf.eval(username);
+    
+    if(!Array.equals(calculatedHash,storedHash)
+           return null;
+    
+    return userBlock;
     }
 }

@@ -11,8 +11,8 @@ import java.util.Arrays;
 public class BlockStoreAuthEnc implements BlockStore {
     private BlockStore    dev;
     private PRGen         prg;
-    public static final int KEY_BYTES = PRF.KEY_SIZE_BYTES;
-    public static final int HASH_BYTES = PRF.OUTPUT_SIZE_BYTES;
+    private static final int KEY_BYTES = PRF.KEY_SIZE_BYTES;
+    private static final int HASH_BYTES = PRF.OUTPUT_SIZE_BYTES;
     
     private boolean blockIsEmpty(int blockNum) throws DataIntegrityException{
         byte[] value = new byte[dev.blockSize()];
