@@ -70,7 +70,8 @@ public class ServerAuth {
     //Hash key with username
     byte[] key = new byte[KEY_BYTES];
     PRF prf = new PRF(key);
-    byte[] hash = prf.eval(user);
+    prf.update(user);
+    byte[] hash = prf.eval(pass);
     //Store in "virtual" SuperBlock space allocated in Multiplexor for each SubStore
     userBlock.writeSuperBlock(hash,0,0,HASH_BYTES);
     return userBlock;  
@@ -97,7 +98,8 @@ public class ServerAuth {
     
     byte[] key = new byte[KEY_BYTES];
     PRF prf = new PRF(key);
-    byte[] calculatedHash = prf.eval(user);
+    prf.update(user);
+    byte[] calculatedHash = prf.eval(pass);
     
     if(!Arrays.equals(calculatedHash,storedHash))
            return null;
