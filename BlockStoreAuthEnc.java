@@ -13,7 +13,8 @@ public class BlockStoreAuthEnc implements BlockStore {
     private PRGen         prg;
     private static final int KEY_BYTES = PRF.KEY_SIZE_BYTES;
     private static final int HASH_BYTES = PRF.OUTPUT_SIZE_BYTES;
-    
+    private byte[] key;
+
     private boolean blockIsEmpty(int blockNum) throws DataIntegrityException{
         byte[] value = new byte[dev.blockSize()];
         byte[] empty = new byte[dev.blockSize()];
@@ -100,15 +101,19 @@ public class BlockStoreAuthEnc implements BlockStore {
     throws DataIntegrityException {
         dev = underStore;
         prg = thePrg; 
-        byte[] key = new byte[KEY_BYTES];
-        byte[] empty = new byte[KEY_BYTES];
-        dev.readSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
-        if(Arrays.equals(key,empty)){
-            for(int i = 0; i < KEY_BYTES; i++) {
-                key[i] = (byte) prg.next(8);
-            }
-            dev.writeSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        key = new byte[32];
+        for (int i = 0; i<32; i++) {
+	    //    key[i] = (byte)i;
         }
+        // byte[] key = new byte[KEY_BYTES];
+        // byte[] empty = new byte[KEY_BYTES];
+        // dev.readSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        // if(Arrays.equals(key,empty)){
+        //    for(int i = 0; i < KEY_BYTES; i++) {
+        //        key[i] = (byte) prg.next(8);
+        //    }
+        //    dev.writeSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        // }
     }
 
     public void format() throws DataIntegrityException { 
@@ -148,16 +153,17 @@ public class BlockStoreAuthEnc implements BlockStore {
             throw new ArrayIndexOutOfBoundsException();
         }
         
-        byte[] encBuf = new byte[nbytes];
-        dev.readBlock(blockNum, encBuf, 0, blockOffset, nbytes);
+        byte[] encBuf = new byte[blockSize()];
+        byte[] decBuf = new byte[blockSize()];
 
-        byte[] key = new byte[KEY_BYTES];
-        dev.readSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        dev.readBlock(blockNum, encBuf, 0, 0, blockSize());
+
         byte[] nonce = new byte[8];
-        LongUtils.longToBytes((long) blockNum, nonce, 0);
+        //LongUtils.longToBytes((long) blockNum, nonce, 0);
         StreamCipher cipher = new StreamCipher(key, nonce, 0);
-        
-        cipher.cryptBytes(encBuf, 0, buf, bufOffset, nbytes);
+        cipher.cryptBytes(encBuf, 0, decBuf, 0, blockSize());
+        System.arraycopy(decBuf, bufOffset, buf, 0, nbytes);
+        // buf[0]=100;
     }
 
     public void writeBlock(int blockNum, byte[] buf, int bufOffset, 
@@ -167,17 +173,19 @@ public class BlockStoreAuthEnc implements BlockStore {
         }
         if(blockOffset+nbytes > blockSize()){
             throw new ArrayIndexOutOfBoundsException();
-        }   
-        byte[] key = new byte[KEY_BYTES];
-        dev.readSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        }
+        
+        byte[] encBuf = new byte[blockSize()];
+        byte[] zerBuf = new byte[blockSize()];
+
         byte[] nonce = new byte[8];
-        LongUtils.longToBytes((long) blockNum, nonce, 0);
+        //LongUtils.longToBytes((long) blockNum, nonce, 0);
         StreamCipher cipher = new StreamCipher(key, nonce, 0);
         
-        byte[] encBuf = new byte[nbytes];
-        cipher.cryptBytes(buf, bufOffset, encBuf, 0, nbytes);
+        System.arraycopy(buf, bufOffset, zerBuf, blockOffset, nbytes);
+        cipher.cryptBytes(zerBuf, 0, encBuf, 0, blockSize());
 
-        dev.writeBlock(blockNum, encBuf, 0, blockOffset, nbytes);
+        dev.writeBlock(blockNum, encBuf, blockOffset, blockOffset, nbytes);
         updateHash(blockNum);
     }
 }

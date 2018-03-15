@@ -63,7 +63,7 @@ public class BlockStoreMultiplexor {
 
     mNumPtrs = (wrappedStore.blockSize()-(msbSize+dPtrSize)) / mPtrSize;
     dbSize = wrappedStore.blockSize()-(dPtrSize*dNumPtrs);
-
+    
     byte[] minusOne = new byte[8];
     LongUtils.longToBytes((long)(-1), minusOne, 0);
     if(masterBlockTemplate == null){
@@ -279,6 +279,10 @@ public class BlockStoreMultiplexor {
         throw new ArrayIndexOutOfBoundsException();
       }
       int realBlockNum = getDataBlockNum(blockNum);
+      if (realBlockNum < -1) {
+	  System.out.println("blockNum:     " + blockNum);
+	  System.out.println("realBlockNum: " + realBlockNum);
+      }
       wrappedStore.readBlock(realBlockNum, buf, bufOffset, blockOffset, nbytes);
     }
 
