@@ -40,7 +40,14 @@ public class AnotherTest {
 		StorageClientSession session = harness.newClientSession();
 
 		testPing(session);
-		testAuthentication(session);
+		for (int i = 0; i < 17; i++) {
+			session = harness.newClientSession();
+			testAuthentication(session, i);	
+		}	
+		for (int i = 0; i < 17; i++) {
+			session = harness.newClientSession();
+			testOldAuthentication(session, i);	
+		}	
 		testReadWrite(session, prg);
 
 		System.out.println("OK");
@@ -53,16 +60,28 @@ public class AnotherTest {
 		session.testPing(buf.length-2, 1, buf);
 	}
 
-	public static void testAuthentication(StorageClientSession session) 
+	public static void testAuthentication(StorageClientSession session, int i) 
 	throws IOException {
 		// leaves us logged in as a user
 
-		String name[] = {"Alice", "Bob", "Charlie"};
-		String pwd[] = {"apassword", "bob's password", "as0c9s83ks#1lasdp"};
+		String name[] = {
+			"Alice", "Bob", "Charlie", "Jane",
+			"Abice", "Bab", "Chaglie", "Jame",
+			"Afice", "Beb", "Chahlie", "Jape",
+			"Agice", "Bub", "Chamlie", "Jare",
+			"Ahice", "Bib", "Chajlie", "Jaqe"
+		};
+		String pwd[] = {
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp"
+		};
 
 		// trying to log in as Alice should fail
 		try {
-			session.authenticate(name[0], pwd[0]);
+			session.authenticate(name[i], pwd[i]);
 			System.out.println("ERROR: authenticated as nonexistent user (1)");
 		}catch(AccessDeniedException x){
 			// This exception should occur
@@ -70,37 +89,52 @@ public class AnotherTest {
 
 		// create an account for Alice
 		try {
-			session.createAccount(name[0], pwd[0]);
+			session.createAccount(name[i], pwd[i]);
 		}catch(AccessDeniedException x){
 			x.printStackTrace();
 		}
 		// should be able to log in as Alice now
-		// try {
-		// 	session.authenticate(name[0], pwd[0]);
-		// }catch(AccessDeniedException x){
-		// 	x.printStackTrace();
-		// }
+		try {
+			session.authenticate(name[i], pwd[i]);
+		}catch(AccessDeniedException x){
+			x.printStackTrace();
+		}
+	}
 
-		// create an account for Bob
+	public static void testOldAuthentication(StorageClientSession session, int i) 
+	throws IOException {
+		// leaves us logged in as a user
+
+		String name[] = {
+			"Alice", "Bob", "Charlie", "Jane",
+			"Abice", "Bab", "Chaglie", "Jame",
+			"Afice", "Beb", "Chahlie", "Jape",
+			"Agice", "Bub", "Chamlie", "Jare",
+			"Ahice", "Bib", "Chajlie", "Jaqe"
+		};
+		String pwd[] = {
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp",
+			"apassword", "bob's password", "as0c9s83ks#1lasdp", "as0c9s86ks#1lasdp"
+		};
+
+		// trying to log in as Alice should Succeed
 		try {
-			session.createAccount(name[1], pwd[1]);
+			session.authenticate(name[i], pwd[i]);
+			System.out.println("authenticated " + i);
 		}catch(AccessDeniedException x){
 			x.printStackTrace();
 		}
 
-		// create an account for Charlie
+		// create an account for Alice should fail
 		try {
-			session.createAccount(name[2], pwd[2]);
+			session.createAccount(name[i], pwd[i]);
+			System.out.println("ERROR: created account for existing user");
 		}catch(AccessDeniedException x){
-			x.printStackTrace();
 		}
-		// should be able to log in as Bob now
-		try {
-			session.authenticate(name[1], pwd[1]);
-		}catch(AccessDeniedException x){
-			System.out.println("Couldn't log in as Bob");
-			x.printStackTrace();
-		}
+
 	}
 
 	public static void testReadWrite(StorageClientSession session, PRGen prg) {
