@@ -63,7 +63,9 @@ public class ServerAuth {
     //Store Username in ArrayStore (which is safe because it was created with
     //the bsm which is implemented by our secure BlockStoreAuthEnc
     int sizeUser = (user.length>100) ? 100 : user.length;
-    as.write(user, 0, 100*numberAccounts, sizeUser);
+    byte[] userWithZeros = new byte[100];
+    System.arraycopy(user, 0, userWithZeros, 0, sizeUser);
+    as.write(userWithZeros, 0, 100*numberAccounts, 100);
     
     //Hash key with username
     byte[] key = new byte[KEY_BYTES];
