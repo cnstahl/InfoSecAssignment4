@@ -187,5 +187,13 @@ public class BlockStoreAuthEnc implements BlockStore {
 
         dev.writeBlock(blockNum, encBuf, blockOffset, blockOffset, nbytes);
         updateHash(blockNum);
+
+        byte[] reader = new byte[nbytes];
+        byte[] compar = new byte[nbytes];
+        System.arraycopy(buf, bufOffset, compar, 0, nbytes);
+        readBlock(blockNum, reader, 0, blockOffset, nbytes);
+        if (!Arrays.equals(reader, compar)) {
+            throw new DataIntegrityException();
+        }
     }
 }
