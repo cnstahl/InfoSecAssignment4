@@ -102,18 +102,18 @@ public class BlockStoreAuthEnc implements BlockStore {
         dev = underStore;
         prg = thePrg; 
         key = new byte[32];
-        for (int i = 0; i<32; i++) {
-	    //    key[i] = (byte)i;
-        }
-        // byte[] key = new byte[KEY_BYTES];
-        // byte[] empty = new byte[KEY_BYTES];
-        // dev.readSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
-        // if(Arrays.equals(key,empty)){
-        //    for(int i = 0; i < KEY_BYTES; i++) {
-        //        key[i] = (byte) prg.next(8);
-        //    }
-        //    dev.writeSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        // for (int i = 0; i<32; i++) {
+	       // key[i] = (byte)i;
         // }
+        // byte[] key = new byte[KEY_BYTES];
+        byte[] empty = new byte[KEY_BYTES];
+        dev.readSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        if(Arrays.equals(key, empty)){
+           for(int i = 0; i < KEY_BYTES; i++) {
+               key[i] = (byte) prg.next(8);
+           }
+           dev.writeSuperBlock(key, 0, superBlockSize()+HASH_BYTES, KEY_BYTES);
+        }
     }
 
     public void format() throws DataIntegrityException { 
@@ -159,10 +159,10 @@ public class BlockStoreAuthEnc implements BlockStore {
         dev.readBlock(blockNum, encBuf, 0, 0, blockSize());
 
         byte[] nonce = new byte[8];
-        //LongUtils.longToBytes((long) blockNum, nonce, 0);
+        LongUtils.longToBytes((long) blockNum, nonce, 0);
         StreamCipher cipher = new StreamCipher(key, nonce, 0);
         cipher.cryptBytes(encBuf, 0, decBuf, 0, blockSize());
-        System.arraycopy(decBuf, bufOffset, buf, 0, nbytes);
+        System.arraycopy(decBuf, blockOffset, buf, bufOffset, nbytes);
         // buf[0]=100;
     }
 
@@ -179,7 +179,7 @@ public class BlockStoreAuthEnc implements BlockStore {
         byte[] zerBuf = new byte[blockSize()];
 
         byte[] nonce = new byte[8];
-        //LongUtils.longToBytes((long) blockNum, nonce, 0);
+        LongUtils.longToBytes((long) blockNum, nonce, 0);
         StreamCipher cipher = new StreamCipher(key, nonce, 0);
         
         System.arraycopy(buf, bufOffset, zerBuf, blockOffset, nbytes);
